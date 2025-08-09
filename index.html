@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        header { background: #333; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+        #hamburger { cursor: pointer; font-size: 24px; }
+        #menu { position: fixed; top: 0; left: -250px; width: 250px; height: 100%; background: #f4f4f4; transition: left 0.3s; padding: 20px; }
+        #menu.open { left: 0; }
+        #lists { list-style: none; padding: 0; }
+        #lists li { cursor: pointer; padding: 10px; border-bottom: 1px solid #ddd; }
+        #add-list { margin-top: 10px; }
+        #main { padding: 20px; }
+        #add-item { display: flex; margin-bottom: 20px; }
+        #add-item input { flex: 1; padding: 10px; }
+        #add-item button { padding: 10px; }
+        #items { list-style: none; padding: 0; }
+        #items li { background: #eee; margin: 10px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: grab; border: 1px solid #ddd; border-radius: 5px; }
+        #items li.dragging { opacity: 0.5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .edit-btn, .delete-btn { margin-left: 10px; cursor: pointer; }
+        #export, #import { margin: 10px 0; }
+        #import-file { display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div id="hamburger">&#9776;</div>
+        <h1>To-Do App</h1>
+    </header>
+    <div id="menu">
+        <h2>Lists</h2>
+        <ul id="lists"></ul>
+        <input id="new-list-name" placeholder="New list name">
+        <button id="add-list">Add List</button>
+        <button id="export">Export JSON</button>
+        <label for="import-file">Import JSON</label>
+        <input type="file" id="import-file" accept=".json">
+    </div>
+    <div id="main">
+        <h2 id="current-list-name">Default List</h2>
+        <div id="add-item">
+            <input id="new-item" placeholder="New item">
+            <button id="add-btn">Add</button>
+        </div>
+        <ul id="items"></ul>
+    </div>
+
+    <script>
+        let data = { lists: [], items: [] };
+        let currentListIndex = 0;
+        let nextListId = 1;
+        let nextItemId = 1;
+
+        function loadData() {
+            const saved = localStorage.getItem('todoData');
+            if (saved) {
+                data = JSON.parse(saved);
+                nextListId = Math.max(...data.lists.map(l => l.id), 0) + 1;
+                nextItemId = Math.max(...data.items.map(i => i.id), 0) + 1;
+            }
+            renderLists();
+            renderItems();
+        }
+
+        function saveData() {
+            localStorage.setItem('todoData', JSON.stringify(data));
+        }
+
+        function renderLists() {
+            const lists = document.getElementById('lists');
+            lists.innerHTML = '';
+            data.lists.sort((a, b) => a.position - b.position).forEach((list, index) => {
+                const li = document.createElement('li');
+                li.textContent = list.name;
+                li.dataset.listId = list.id;
+                li.onclick = () => {
+                    currentListIndex = index;
+                    document.getElementById('current-list-name').textContent = list.name;
+                    renderItems();
+                    toggleMenu();
+                };
+                lists.appendChild(li);
+            });
+        }
+
+        function renderItems() {
+            const items = document.getElementById('items');
+            items.innerHTML = '';
+            const currentList = data.lists[currentListIndex];
+            data.items
+                .filter(item => item.list_id === currentList.id)
+                .sort((a, b) => a.position - b.position)
+                .forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.draggable = true;
+                    li.dataset.itemId = item.id;
+                    const text = document.createElement('span');
+                    text.textContent = item.text;
+                    text.contentEditable = false;
+                    li.appendChild(text);
+                    const editBtn = document.createElement('span');
+                    editBtn.textContent = '✎';
+                    editBtn.className = 'edit-btn';
+                    editBtn.onclick = () => {
+                        text.contentEditable = true;
+                        text.focus();
+                    };
+                    text.onblur = () => {
+                        text.contentEditable = false;
+                        item.text = text.textContent;
+                        saveData();
+                    };
+                    li.appendChild(editBtn);
+                    const deleteBtn = document.createElement('span');
+                    deleteBtn.textContent = '🗑';
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.onclick = () => {
+                        data.items = data.items.filter(i => i.id !== item.id);
+                        saveData();
+                        renderItems();
+                    };
+                    li.appendChild(deleteBtn);
+                    items.appendChild(li);
+                });
+            initDragAndDrop();
+        }
+
+        function initDragAndDrop() {
+            const items = document.getElementById('items');
+            let dragSrcEl = null;
+
+            function handleDragStart(e) {
+                dragSrcEl = this;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', this.dataset.itemId);
+                this.classList.add('dragging');
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                if (dragSrcEl !== this) {
+                    const srcId = parseInt(dragSrcEl.dataset.itemId);
+                    const destId = parseInt(this.dataset.itemId);
+                    const srcItem = data.items.find(i => i.id === srcId);
+                    const destItem = data.items.find(i => i.id === destId);
+                    const srcIndex = data.items.indexOf(srcItem);
+                    const destIndex = data.items.indexOf(destItem);
+                    data.items.splice(srcIndex, 1);
+                    data.items.splice(destIndex, 0, srcItem);
+                    data.items.forEach((item, index) => item.position = index + 1);
+                    saveData();
+                    renderItems();
+                }
+                dragSrcEl.classList.remove('dragging');
+            }
+
+            function handleDragEnd() {
+                this.classList.remove('dragging');
+            }
+
+            // Touch support
+            let touchElement = null;
+
+            items.addEventListener('touchstart', (e) => {
+                touchElement = e.target.closest('li');
+                if (touchElement) {
+                    touchElement.classList.add('dragging');
+                }
+            });
+
+            items.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (touchElement) {
+                    const touchY = e.touches[0].clientY;
+                    const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
+                    const hoverLi = hoverElement ? hoverElement.closest('li') : null;
+                    if (hoverLi && hoverLi !== touchElement) {
+                        const rect = hoverLi.getBoundingClientRect();
+                        const next = (touchY - rect.top) / rect.height > 0.5;
+                        items.insertBefore(touchElement, next ? hoverLi.nextSibling : hoverLi);
+                    }
+                }
+            });
+
+            items.addEventListener('touchend', () => {
+                if (touchElement) {
+                    touchElement.classList.remove('dragging');
+                    const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
+                    const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
+                    data.items = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id).concat(reorderedItems);
+                    data.items.forEach((item, index) => item.position = index + 1);
+                    saveData();
+                    renderItems();
+                    touchElement = null;
+                }
+            });
+
+            Array.from(items.children).forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        function toggleMenu() {
+            document.getElementById('menu').classList.toggle('open');
+        }
+
+        document.getElementById('hamburger').onclick = toggleMenu;
+
+        document.getElementById('add-list').onclick = () => {
+            const name = document.getElementById('new-list-name').value.trim();
+            if (name) {
+                data.lists.push({ id: nextListId++, name, position: data.lists.length + 1 });
+                saveData();
+                renderLists();
+                document.getElementById('new-list-name').value = '';
+            }
+        };
+
+        document.getElementById('add-btn').onclick = () => {
+            const text = document.getElementById('new-item').value.trim();
+            if (text) {
+                data.items.push({
+                    id: nextItemId++,
+                    list_id: data.lists[currentListIndex].id,
+                    text,
+                    position: data.items.filter(i => i.list_id === data.lists[currentListIndex].id).length + 1
+                });
+                saveData();
+                renderItems();
+                document.getElementById('new-item').value = '';
+            }
+        };
+
+        document.getElementById('export').onclick = () => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'todo_data.json';
+            a.click();
+        };
+
+        document.getElementById('import-file').onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    data = JSON.parse(ev.target.result);
+                    nextListId = Math.max(...data.lists.map(l => l.id), 0) + 1;
+                    nextItemId = Math.max(...data.items.map(i => i.id), 0) + 1;
+                    saveData();
+                    renderLists();
+                    renderItems();
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        loadData();
+    </script>
+</body>
+</html>
