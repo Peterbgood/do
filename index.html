@@ -20,9 +20,12 @@
         #items { list-style: none; padding: 0; }
         #items li { background: #eee; margin: 10px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: grab; border: 1px solid #ddd; border-radius: 5px; }
         #items li.dragging { opacity: 0.5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        .edit-btn, .delete-btn { margin-left: 10px; cursor: pointer; }
+        .delete-btn { margin-left: 10px; cursor: pointer; }
         #export, #import { margin: 10px 0; }
         #import-file { display: none; }
+        @media (max-width: 400px) {
+            #menu { width: 100%; left: -100%; }
+        }
     </style>
 </head>
 <body>
@@ -99,21 +102,19 @@
                     li.dataset.itemId = item.id;
                     const text = document.createElement('span');
                     text.textContent = item.text;
+                    text.style.flex = '1';
                     text.contentEditable = false;
-                    li.appendChild(text);
-                    const editBtn = document.createElement('span');
-                    editBtn.textContent = '✎';
-                    editBtn.className = 'edit-btn';
-                    editBtn.onclick = () => {
+                    text.addEventListener('click', (e) => {
+                        if (text.contentEditable === 'true') return;
                         text.contentEditable = true;
                         text.focus();
-                    };
+                    });
                     text.onblur = () => {
                         text.contentEditable = false;
                         item.text = text.textContent;
                         saveData();
                     };
-                    li.appendChild(editBtn);
+                    li.appendChild(text);
                     const deleteBtn = document.createElement('span');
                     deleteBtn.textContent = '🗑';
                     deleteBtn.className = 'delete-btn';
@@ -155,7 +156,7 @@
                     const destIndex = data.items.indexOf(destItem);
                     data.items.splice(srcIndex, 1);
                     data.items.splice(destIndex, 0, srcItem);
-                    data.items.forEach((item, index) => item.position = index + 1);
+                    data.items.forEach((item, idx) => item.position = idx + 1);
                     saveData();
                     renderItems();
                 }
@@ -168,9 +169,11 @@
 
             // Touch support
             let touchElement = null;
+            let hasMoved = false;
 
             items.addEventListener('touchstart', (e) => {
                 touchElement = e.target.closest('li');
+                hasMoved = false;
                 if (touchElement) {
                     touchElement.classList.add('dragging');
                 }
@@ -178,6 +181,7 @@
 
             items.addEventListener('touchmove', (e) => {
                 e.preventDefault();
+                hasMoved = true;
                 if (touchElement) {
                     const touchY = e.touches[0].clientY;
                     const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
@@ -190,15 +194,17 @@
                 }
             });
 
-            items.addEventListener('touchend', () => {
+            items.addEventListener('touchend', (e) => {
                 if (touchElement) {
                     touchElement.classList.remove('dragging');
-                    const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
-                    const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
-                    data.items = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id).concat(reorderedItems);
-                    data.items.forEach((item, index) => item.position = index + 1);
-                    saveData();
-                    renderItems();
+                    if (hasMoved) {
+                        const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
+                        const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
+                        data.items = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id).concat(reorderedItems);
+                        reorderedItems.forEach((item, index) => item.position = index + 1);
+                        saveData();
+                        renderItems();
+                    }
                     touchElement = null;
                 }
             });
