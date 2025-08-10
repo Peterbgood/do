@@ -8,10 +8,23 @@
     <style>
         body { font-family: Arial, sans-serif; }
         header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #333; color: white; }
+        
+        /* Specific menu styling for list items */
         .offcanvas-body ul { list-style: none; padding: 0; }
-        .offcanvas-body li { cursor: pointer; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
-        .offcanvas-body li span { flex-grow: 1; }
+        .offcanvas-body li { 
+            cursor: pointer; 
+            padding: 10px; 
+            border-bottom: 1px solid #ddd; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        /* New class to make list name grow and push trash can to the right */
+        .list-name {
+            flex-grow: 1;
+        }
         .delete-list-btn { cursor: pointer; margin-left: 10px; }
+
         #main { padding: 15px; box-sizing: border-box; }
         #add-item { display: flex; margin-bottom: 15px; }
         #add-item input { flex: 1; padding: 10px; }
@@ -26,10 +39,10 @@
 </head>
 <body>
     <header>
+        <h1>To-Do App</h1>
         <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
             &#9776;
         </button>
-        <h1>To-Do App</h1>
     </header>
 
     <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
@@ -85,17 +98,14 @@
         }
         
         function deleteList(listId) {
-            // Remove the list and its items from the data
             data.lists = data.lists.filter(l => l.id !== listId);
             data.items = data.items.filter(i => i.list_id !== listId);
         
-            // If the deleted list was the current one, switch to the first list
             if (data.lists.length > 0) {
                 const newCurrentList = data.lists[0];
                 currentListIndex = 0;
                 document.getElementById('current-list-name').textContent = newCurrentList.name;
             } else {
-                // If all lists are deleted, create a new default list
                 data.lists.push({ id: nextListId++, name: 'Default List', position: 1 });
                 currentListIndex = 0;
                 document.getElementById('current-list-name').textContent = data.lists[0].name;
@@ -113,18 +123,18 @@
                 const li = document.createElement('li');
                 const listNameSpan = document.createElement('span');
                 listNameSpan.textContent = list.name;
+                // Assign new class for styling
+                listNameSpan.classList.add('list-name'); 
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
 
                 li.onclick = (e) => {
-                    // Prevent switching list when clicking the delete button
                     if (e.target.classList.contains('delete-list-btn')) {
                         return;
                     }
                     currentListIndex = index;
                     document.getElementById('current-list-name').textContent = list.name;
                     renderItems();
-                    // Close the offcanvas menu
                     const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasMenu'));
                     if (offcanvas) offcanvas.hide();
                 };
@@ -143,7 +153,7 @@
             items.innerHTML = '';
             const currentList = data.lists[currentListIndex];
             if (!currentList) {
-                items.innerHTML = '<li>No items. Add a list first.</li>';
+                items.innerHTML = '<li class="list-group-item">No items. Add a list first.</li>';
                 return;
             }
             data.items
