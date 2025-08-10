@@ -44,7 +44,6 @@
             font-size: 1rem;
         }
 
-        /* Styles for the new list drag handle */
         .drag-handle-list {
             cursor: grab;
             margin-right: 10px;
@@ -139,6 +138,13 @@
         let nextListId = 1;
         let nextItemId = 1;
 
+        // Helper function to capitalize the first letter of every word
+        function toTitleCase(str) {
+            return str.replace(/\w\S*/g, function(txt){
+                return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+            });
+        }
+
         function loadData() {
             const saved = localStorage.getItem('todoData');
             if (saved) {
@@ -189,17 +195,15 @@
         function renderLists() {
             const lists = document.getElementById('lists');
             lists.innerHTML = '';
-            // Store the ID of the current list to maintain selection after re-render
             const currentListId = data.lists[currentListIndex]?.id;
 
             data.lists.sort((a, b) => a.position - b.position).forEach(list => {
                 const li = document.createElement('li');
-                li.draggable = true; // Make the list item draggable
+                li.draggable = true;
                 li.dataset.listId = list.id;
 
-                // Create and add the drag handle icon
                 const dragHandle = document.createElement('span');
-                dragHandle.textContent = '≡'; // A common drag icon
+                dragHandle.textContent = '≡';
                 dragHandle.className = 'drag-handle-list';
                 li.appendChild(dragHandle);
 
@@ -249,9 +253,9 @@
 
                     saveBtn.onclick = (e) => {
                         e.stopPropagation();
-                        const newName = listNameSpan.textContent.trim();
+                        let newName = listNameSpan.textContent.trim();
                         if (newName) {
-                            list.name = newName;
+                            list.name = toTitleCase(newName); // Capitalize on save
                             saveData();
                         }
                         listNameSpan.contentEditable = false;
@@ -278,7 +282,6 @@
                 };
                 
                 li.onclick = (e) => {
-                    // Prevent list selection when clicking on buttons or handle
                     if (e.target.classList.contains('drag-handle-list') || e.target.closest('.list-buttons')) {
                         return;
                     }
@@ -291,11 +294,11 @@
                 
                 lists.appendChild(li);
             });
-            // Update currentListIndex to point to the correct list after sorting/rendering
+
             currentListIndex = data.lists.findIndex(l => l.id === currentListId);
             if (currentListIndex === -1) currentListIndex = 0;
 
-            initListDragAndDrop(); // Initialize drag and drop for the lists
+            initListDragAndDrop();
         }
 
         function renderItems() {
@@ -344,12 +347,13 @@
 
                     text.onblur = () => {
                         text.contentEditable = false;
-                        const newText = text.textContent.trim();
+                        let newText = text.textContent.trim();
                         if (newText) {
-                            item.text = newText;
+                            item.text = toTitleCase(newText); // Capitalize on save
                             saveData();
+                            renderItems(); // Re-render to show capitalized text
                         } else {
-                            text.textContent = item.text; // Revert if empty
+                            text.textContent = item.text;
                         }
                     };
                     
@@ -367,13 +371,11 @@
             initDragAndDrop();
         }
         
-        // NEW FUNCTION for dragging and dropping lists
         function initListDragAndDrop() {
             const listsContainer = document.getElementById('lists');
             let dragSrcEl = null;
 
             function handleDragStart(e) {
-                // Only allow dragging from the handle
                 if (!e.target.classList.contains('drag-handle-list')) {
                     e.preventDefault();
                     return;
@@ -390,20 +392,16 @@
             }
 
             function handleDrop(e) {
-                e.stopPropagation(); // stops the browser from redirecting.
+                e.stopPropagation();
                 if (dragSrcEl !== this) {
                     const allLists = Array.from(listsContainer.children);
                     const srcIndex = allLists.indexOf(dragSrcEl);
                     const destIndex = allLists.indexOf(this);
-
                     const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
-                    
                     const [movedItem] = data.lists.splice(srcIndex, 1);
                     data.lists.splice(destIndex, 0, movedItem);
-
                     data.lists.forEach((list, idx) => list.position = idx + 1);
                     currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
-                    
                     saveData();
                     renderLists();
                 }
@@ -416,7 +414,6 @@
                 });
             }
 
-            // Touch event handling for lists
             let touchElement = null;
             let hasMoved = false;
 
@@ -431,11 +428,9 @@
                 if (!touchElement) return;
                 hasMoved = true;
                 touchElement.classList.add('dragging');
-                
                 const touchY = e.touches[0].clientY;
                 const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
                 const hoverLi = hoverElement ? hoverElement.closest('li') : null;
-
                 if (hoverLi && hoverLi !== touchElement && listsContainer.contains(hoverLi)) {
                     const allLists = Array.from(listsContainer.children);
                     const srcIndex = allLists.indexOf(touchElement);
@@ -455,10 +450,8 @@
                     const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
                     const newOrderIds = Array.from(listsContainer.children).map(li => parseInt(li.dataset.listId));
                     data.lists.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
-
                     data.lists.forEach((list, index) => list.position = index + 1);
                     currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
-
                     saveData();
                     renderLists();
                 }
@@ -499,10 +492,8 @@
                     const srcIndex = data.items.indexOf(srcItem);
                     const destIndex = data.items.indexOf(destItem);
                     data.items.splice(destIndex, 0, data.items.splice(srcIndex, 1)[0]);
-                    
                     const currentListItems = data.items.filter(i => i.list_id === data.lists[currentListIndex].id);
                     currentListItems.forEach((item, idx) => item.position = idx + 1);
-
                     saveData();
                     renderItems();
                 }
@@ -545,10 +536,8 @@
                     if (hasMoved) {
                         const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
                         const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
-                        
                         const otherItems = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id);
                         data.items = otherItems.concat(reorderedItems);
-
                         reorderedItems.forEach((item, index) => item.position = index + 1);
                         saveData();
                         renderItems();
@@ -569,7 +558,7 @@
             const textInput = document.getElementById('new-item');
             const text = textInput.value.trim();
             if (text) {
-                const capitalizedText = text.charAt(0).toUpperCase() + text.slice(1);
+                const capitalizedText = toTitleCase(text); // Capitalize new item
                 data.items.push({
                     id: nextItemId++,
                     list_id: data.lists[currentListIndex].id,
@@ -585,7 +574,8 @@
         document.getElementById('add-list').onclick = () => {
             const name = document.getElementById('new-list-name').value.trim();
             if (name) {
-                data.lists.push({ id: nextListId++, name, position: data.lists.length + 1 });
+                const capitalizedName = toTitleCase(name); // Capitalize new list name
+                data.lists.push({ id: nextListId++, name: capitalizedName, position: data.lists.length + 1 });
                 saveData();
                 renderLists();
                 document.getElementById('new-list-name').value = '';
