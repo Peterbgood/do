@@ -165,9 +165,15 @@
                 const listNameSpan = document.createElement('span');
                 listNameSpan.textContent = list.name;
                 listNameSpan.classList.add('list-name'); 
-                listNameSpan.contentEditable = true; // Make list name editable
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
+
+                // New click handler for the list name span
+                listNameSpan.onclick = (e) => {
+                    e.stopPropagation(); // Prevents the parent li click handler from firing
+                    listNameSpan.contentEditable = true;
+                    listNameSpan.focus();
+                };
 
                 listNameSpan.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -187,8 +193,10 @@
                         listNameSpan.textContent = list.name; // Revert if empty
                     }
                 };
-
+                
+                // Existing click handler for the list item
                 li.onclick = (e) => {
+                    // Check if the click was on the delete button or the editable name
                     if (e.target.classList.contains('delete-list-btn') || e.target === listNameSpan) {
                         return;
                     }
