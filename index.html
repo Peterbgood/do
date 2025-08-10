@@ -25,11 +25,12 @@
             height: 2px;
             background-color: white;
         }
+        /* Adjusted spacing for a better look */
         .hamburger-icon::before {
-            transform: translateY(-8px);
+            transform: translateY(-7px);
         }
         .hamburger-icon::after {
-            transform: translateY(8px);
+            transform: translateY(7px);
         }
 
         /* Specific menu styling for list items */
@@ -62,7 +63,7 @@
 <body>
     <header>
         <h1 id="header-list-name">To-Do App</h1>
-        <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
+        <button class="btn btn-dark d-flex align-items-center justify-content-center" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
             <div class="hamburger-icon"></div>
         </button>
     </header>
