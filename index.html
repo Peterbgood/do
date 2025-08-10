@@ -9,39 +9,6 @@
         body { font-family: Arial, sans-serif; }
         header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #333; color: white; }
         
-        /* New hamburger icon styling */
-        .hamburger-icon {
-            position: relative;
-            width: 25px;
-            height: 2px;
-            background-color: white;
-            transition: all 0.3s ease-in-out;
-        }
-        .hamburger-icon::before,
-        .hamburger-icon::after {
-            content: '';
-            position: absolute;
-            width: 25px;
-            height: 2px;
-            background-color: white;
-            transition: all 0.3s ease-in-out;
-        }
-        .hamburger-icon::before {
-            transform: translateY(-8px);
-        }
-        .hamburger-icon::after {
-            transform: translateY(8px);
-        }
-        .hamburger-icon.open {
-            transform: rotate(45deg);
-        }
-        .hamburger-icon.open::before {
-            transform: rotate(90deg) translateX(8px);
-        }
-        .hamburger-icon.open::after {
-            opacity: 0;
-        }
-        
         /* Specific menu styling for list items */
         .offcanvas-body ul { list-style: none; padding: 0; }
         .offcanvas-body li { 
@@ -71,9 +38,9 @@
 </head>
 <body>
     <header>
-        <h1>To-Do App</h1>
+        <h1 id="header-list-name">To-Do App</h1>
         <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
-            <div class="hamburger-icon"></div>
+            <span class="navbar-toggler-icon"></span>
         </button>
     </header>
 
@@ -123,22 +90,27 @@
             }
             renderLists();
             renderItems();
-            // Set the initial title on page load
-            updateTitle();
+            updateHeadings();
         }
 
         function saveData() {
             localStorage.setItem('todoData', JSON.stringify(data));
         }
-        
-        function updateTitle() {
-            if (data.lists[currentListIndex]) {
-                document.title = data.lists[currentListIndex].name + ' | To-Do App';
+
+        function updateHeadings() {
+            const currentList = data.lists[currentListIndex];
+            if (currentList) {
+                document.title = currentList.name + ' | To-Do App';
+                document.getElementById('header-list-name').textContent = currentList.name;
+                document.getElementById('current-list-name').textContent = currentList.name;
             } else {
+                // Fallback if no lists exist
                 document.title = 'To-Do App';
+                document.getElementById('header-list-name').textContent = 'To-Do App';
+                document.getElementById('current-list-name').textContent = 'No lists';
             }
         }
-
+        
         function deleteList(listId) {
             data.lists = data.lists.filter(l => l.id !== listId);
             data.items = data.items.filter(i => i.list_id !== listId);
@@ -146,18 +118,15 @@
             if (data.lists.length > 0) {
                 const newCurrentList = data.lists[0];
                 currentListIndex = 0;
-                document.getElementById('current-list-name').textContent = newCurrentList.name;
             } else {
                 data.lists.push({ id: nextListId++, name: 'Default List', position: 1 });
                 currentListIndex = 0;
-                document.getElementById('current-list-name').textContent = data.lists[0].name;
             }
         
             saveData();
             renderLists();
             renderItems();
-            // Update the title after deletion
-            updateTitle();
+            updateHeadings();
         }
 
         function renderLists() {
@@ -176,9 +145,7 @@
                         return;
                     }
                     currentListIndex = index;
-                    document.getElementById('current-list-name').textContent = list.name;
-                    // Update the title when switching lists
-                    updateTitle();
+                    updateHeadings();
                     renderItems();
                     const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasMenu'));
                     if (offcanvas) offcanvas.hide();
@@ -395,16 +362,6 @@
                 reader.readAsText(file);
             }
         };
-        
-        // Hamburger icon animation logic
-        const offcanvasElement = document.getElementById('offcanvasMenu');
-        const hamburgerIcon = document.querySelector('.hamburger-icon');
-        offcanvasElement.addEventListener('show.bs.offcanvas', () => {
-            hamburgerIcon.classList.add('open');
-        });
-        offcanvasElement.addEventListener('hidden.bs.offcanvas', () => {
-            hamburgerIcon.classList.remove('open');
-        });
 
         loadData();
     </script>
