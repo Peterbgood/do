@@ -9,6 +9,39 @@
         body { font-family: Arial, sans-serif; }
         header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #333; color: white; }
         
+        /* New hamburger icon styling */
+        .hamburger-icon {
+            position: relative;
+            width: 25px;
+            height: 2px;
+            background-color: white;
+            transition: all 0.3s ease-in-out;
+        }
+        .hamburger-icon::before,
+        .hamburger-icon::after {
+            content: '';
+            position: absolute;
+            width: 25px;
+            height: 2px;
+            background-color: white;
+            transition: all 0.3s ease-in-out;
+        }
+        .hamburger-icon::before {
+            transform: translateY(-8px);
+        }
+        .hamburger-icon::after {
+            transform: translateY(8px);
+        }
+        .hamburger-icon.open {
+            transform: rotate(45deg);
+        }
+        .hamburger-icon.open::before {
+            transform: rotate(90deg) translateX(8px);
+        }
+        .hamburger-icon.open::after {
+            opacity: 0;
+        }
+        
         /* Specific menu styling for list items */
         .offcanvas-body ul { list-style: none; padding: 0; }
         .offcanvas-body li { 
@@ -19,7 +52,6 @@
             justify-content: space-between; 
             align-items: center; 
         }
-        /* New class to make list name grow and push trash can to the right */
         .list-name {
             flex-grow: 1;
         }
@@ -41,7 +73,7 @@
     <header>
         <h1>To-Do App</h1>
         <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
-            &#9776;
+            <div class="hamburger-icon"></div>
         </button>
     </header>
 
@@ -91,12 +123,22 @@
             }
             renderLists();
             renderItems();
+            // Set the initial title on page load
+            updateTitle();
         }
 
         function saveData() {
             localStorage.setItem('todoData', JSON.stringify(data));
         }
         
+        function updateTitle() {
+            if (data.lists[currentListIndex]) {
+                document.title = data.lists[currentListIndex].name + ' | To-Do App';
+            } else {
+                document.title = 'To-Do App';
+            }
+        }
+
         function deleteList(listId) {
             data.lists = data.lists.filter(l => l.id !== listId);
             data.items = data.items.filter(i => i.list_id !== listId);
@@ -114,6 +156,8 @@
             saveData();
             renderLists();
             renderItems();
+            // Update the title after deletion
+            updateTitle();
         }
 
         function renderLists() {
@@ -123,7 +167,6 @@
                 const li = document.createElement('li');
                 const listNameSpan = document.createElement('span');
                 listNameSpan.textContent = list.name;
-                // Assign new class for styling
                 listNameSpan.classList.add('list-name'); 
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
@@ -134,6 +177,8 @@
                     }
                     currentListIndex = index;
                     document.getElementById('current-list-name').textContent = list.name;
+                    // Update the title when switching lists
+                    updateTitle();
                     renderItems();
                     const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasMenu'));
                     if (offcanvas) offcanvas.hide();
@@ -292,6 +337,22 @@
             });
         }
         
+        function addItem() {
+            const textInput = document.getElementById('new-item');
+            const text = textInput.value.trim();
+            if (text) {
+                data.items.push({
+                    id: nextItemId++,
+                    list_id: data.lists[currentListIndex].id,
+                    text,
+                    position: data.items.filter(i => i.list_id === data.lists[currentListIndex].id).length + 1
+                });
+                saveData();
+                renderItems();
+                textInput.value = '';
+            }
+        }
+        
         document.getElementById('add-list').onclick = () => {
             const name = document.getElementById('new-list-name').value.trim();
             if (name) {
@@ -302,21 +363,14 @@
             }
         };
 
-        document.getElementById('add-btn').onclick = () => {
-            const text = document.getElementById('new-item').value.trim();
-            if (text) {
-                data.items.push({
-                    id: nextItemId++,
-                    list_id: data.lists[currentListIndex].id,
-                    text,
-                    position: data.items.filter(i => i.list_id === data.lists[currentListIndex].id).length + 1
-                });
-                saveData();
-                renderItems();
-                document.getElementById('new-item').value = '';
+        document.getElementById('add-btn').onclick = addItem;
+        document.getElementById('new-item').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addItem();
             }
-        };
-
+        });
+        
         document.getElementById('export').onclick = () => {
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -341,6 +395,16 @@
                 reader.readAsText(file);
             }
         };
+        
+        // Hamburger icon animation logic
+        const offcanvasElement = document.getElementById('offcanvasMenu');
+        const hamburgerIcon = document.querySelector('.hamburger-icon');
+        offcanvasElement.addEventListener('show.bs.offcanvas', () => {
+            hamburgerIcon.classList.add('open');
+        });
+        offcanvasElement.addEventListener('hidden.bs.offcanvas', () => {
+            hamburgerIcon.classList.remove('open');
+        });
 
         loadData();
     </script>
