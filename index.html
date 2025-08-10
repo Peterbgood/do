@@ -4,17 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>To-Do App</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        header { background: #333; color: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+        #hamburger { cursor: pointer; font-size: 24px; }
         #menu { position: fixed; top: 0; left: -100%; width: 80%; max-width: 250px; height: 100%; background: #f4f4f4; transition: left 0.3s; padding: 15px; box-sizing: border-box; }
         #menu.open { left: 0; }
         #lists { list-style: none; padding: 0; margin: 0; }
-        #lists li { padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
+        #lists li { cursor: pointer; padding: 10px; border-bottom: 1px solid #ddd; }
+        #add-list { margin-top: 10px; }
         #main { padding: 15px; box-sizing: border-box; }
+        #add-item { display: flex; margin-bottom: 15px; }
+        #add-item input { flex: 1; padding: 10px; }
+        #add-item button { padding: 10px; }
         #items { list-style: none; padding: 0; margin: 0; }
         #items li { background: #eee; margin: 10px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: grab; border: 1px solid #ddd; border-radius: 5px; }
         #items li.dragging { opacity: 0.5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .delete-btn { margin-left: 10px; cursor: pointer; }
+        #export, #import { margin: 10px 0; display: block; }
         #import-file { display: none; }
         @media (max-width: 400px) {
             #menu { width: 100%; }
@@ -23,36 +30,28 @@
     </style>
 </head>
 <body>
-    <header class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-        <button class="btn btn-dark" type="button" id="hamburger" data-bs-toggle="offcanvas" data-bs-target="#menu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <h1 class="m-0">To-Do App</h1>
+    <header>
+        <div id="hamburger">&#9776;</div>
+        <h1>To-Do App</h1>
     </header>
-    <div class="offcanvas offcanvas-start" id="menu">
-        <div class="offcanvas-header">
-            <h2 class="offcanvas-title">Lists</h2>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body">
-            <ul id="lists"></ul>
-            <input id="new-list-name" class="form-control mb-2" placeholder="New list name">
-            <button id="add-list" class="btn btn-primary mb-2">Add List</button>
-            <button id="export" class="btn btn-secondary mb-2">Export JSON</button>
-            <label for="import-file" class="btn btn-secondary mb-2">Import JSON</label>
-            <input type="file" id="import-file" accept=".json">
-        </div>
+    <div id="menu">
+        <h2>Lists</h2>
+        <ul id="lists"></ul>
+        <input id="new-list-name" placeholder="New list name">
+        <button id="add-list">Add List</button>
+        <button id="export">Export JSON</button>
+        <label for="import-file">Import JSON</label>
+        <input type="file" id="import-file" accept=".json">
     </div>
-    <div id="main" class="container">
-        <h2 id="current-list-name" class="mt-3">Default List</h2>
-        <div id="add-item" class="input-group mb-3">
-            <input id="new-item" class="form-control" placeholder="New item">
-            <button id="add-btn" class="btn btn-primary">Add</button>
+    <div id="main">
+        <h2 id="current-list-name">Default List</h2>
+        <div id="add-item">
+            <input id="new-item" placeholder="New item">
+            <button id="add-btn">Add</button>
         </div>
         <ul id="items"></ul>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let data = { lists: [], items: [] };
         let currentListIndex = 0;
@@ -65,6 +64,9 @@
                 data = JSON.parse(saved);
                 nextListId = Math.max(...data.lists.map(l => l.id), 0) + 1;
                 nextItemId = Math.max(...data.items.map(i => i.id), 0) + 1;
+            } else {
+                // If no data, create a default list
+                data.lists.push({ id: nextListId++, name: 'Default List', position: 1 });
             }
             renderLists();
             renderItems();
@@ -79,28 +81,14 @@
             lists.innerHTML = '';
             data.lists.sort((a, b) => a.position - b.position).forEach((list, index) => {
                 const li = document.createElement('li');
-                const span = document.createElement('span');
-                span.textContent = list.name;
-                span.style.cursor = 'pointer';
-                span.onclick = () => {
+                li.textContent = list.name;
+                li.dataset.listId = list.id;
+                li.onclick = () => {
                     currentListIndex = index;
                     document.getElementById('current-list-name').textContent = list.name;
                     renderItems();
-                    new bootstrap.Offcanvas(document.getElementById('menu')).hide();
+                    toggleMenu();
                 };
-                li.appendChild(span);
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn btn-danger btn-sm';
-                deleteBtn.textContent = '🗑';
-                deleteBtn.onclick = () => {
-                    data.items = data.items.filter(i => i.list_id !== list.id);
-                    data.lists = data.lists.filter(l => l.id !== list.id);
-                    if (currentListIndex >= data.lists.length) currentListIndex = 0;
-                    saveData();
-                    renderLists();
-                    renderItems();
-                };
-                li.appendChild(deleteBtn);
                 lists.appendChild(li);
             });
         }
@@ -120,20 +108,29 @@
                     text.textContent = item.text;
                     text.style.flex = '1';
                     text.contentEditable = false;
-                    text.addEventListener('click', () => {
+                    text.addEventListener('click', (e) => {
                         if (text.contentEditable === 'true') return;
                         text.contentEditable = true;
                         text.focus();
                     });
+                    
+                    // New code for saving on 'Enter' keypress
+                    text.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault(); // Prevent new line
+                            text.blur();
+                        }
+                    });
+
                     text.onblur = () => {
                         text.contentEditable = false;
                         item.text = text.textContent;
                         saveData();
                     };
                     li.appendChild(text);
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'btn btn-danger btn-sm';
+                    const deleteBtn = document.createElement('span');
                     deleteBtn.textContent = '🗑';
+                    deleteBtn.className = 'delete-btn';
                     deleteBtn.onclick = () => {
                         data.items = data.items.filter(i => i.id !== item.id);
                         saveData();
@@ -170,9 +167,12 @@
                     const destItem = data.items.find(i => i.id === destId);
                     const srcIndex = data.items.indexOf(srcItem);
                     const destIndex = data.items.indexOf(destItem);
-                    data.items.splice(srcIndex, 1);
-                    data.items.splice(destIndex, 0, srcItem);
-                    data.items.forEach((item, idx) => item.position = idx + 1);
+                    data.items.splice(destIndex, 0, data.items.splice(srcIndex, 1)[0]);
+                    
+                    // Re-position items in the current list
+                    const currentListItems = data.items.filter(i => i.list_id === data.lists[currentListIndex].id);
+                    currentListItems.forEach((item, idx) => item.position = idx + 1);
+
                     saveData();
                     renderItems();
                 }
@@ -215,7 +215,10 @@
                     if (hasMoved) {
                         const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
                         const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
-                        data.items = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id).concat(reorderedItems);
+                        
+                        const otherItems = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id);
+                        data.items = otherItems.concat(reorderedItems);
+
                         reorderedItems.forEach((item, index) => item.position = index + 1);
                         saveData();
                         renderItems();
@@ -224,6 +227,7 @@
                 }
             });
 
+            // Re-apply event listeners after renderItems
             Array.from(items.children).forEach(item => {
                 item.addEventListener('dragstart', handleDragStart);
                 item.addEventListener('dragover', handleDragOver);
@@ -231,6 +235,13 @@
                 item.addEventListener('dragend', handleDragEnd);
             });
         }
+
+        function toggleMenu() {
+            document.getElementById('menu').classList.toggle('open');
+        }
+
+        // Add event listener to the hamburger menu icon
+        document.getElementById('hamburger').onclick = toggleMenu;
 
         document.getElementById('add-list').onclick = () => {
             const name = document.getElementById('new-list-name').value.trim();
@@ -286,3 +297,4 @@
     </script>
 </body>
 </html>
+
