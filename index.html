@@ -181,7 +181,6 @@
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
                 
-                // Add container for buttons
                 const listButtons = document.createElement('div');
                 listButtons.classList.add('list-buttons');
 
@@ -197,12 +196,19 @@
 
                 li.appendChild(listButtons);
 
-                // Event handlers
                 editBtn.onclick = (e) => {
                     e.stopPropagation();
                     const initialName = listNameSpan.textContent;
                     listNameSpan.contentEditable = true;
                     listNameSpan.focus();
+                    
+                    // Fix: Place cursor at the end of the text
+                    const range = document.createRange();
+                    const selection = window.getSelection();
+                    range.selectNodeContents(listNameSpan);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
                     
                     const saveBtn = document.createElement('span');
                     saveBtn.textContent = '✔️';
