@@ -6,11 +6,9 @@
     <title>To-Do App</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <style>
-        /* Updated header to use Bootstrap's navbar classes */
         .navbar { padding: 10px 15px; }
         .navbar h1 { font-size: 1.5rem; color: white; margin: 0; }
         
-        /* Custom styles for the app's components */
         .offcanvas-body ul { list-style: none; padding: 0; }
         .offcanvas-body li { 
             cursor: pointer; 
@@ -23,6 +21,10 @@
         .list-name {
             flex-grow: 1;
         }
+        .list-name:focus {
+            outline: 2px solid #0d6efd;
+            border-radius: 4px;
+        }
         .delete-list-btn { cursor: pointer; margin-left: 10px; }
 
         #main { padding: 15px; box-sizing: border-box; }
@@ -30,9 +32,38 @@
         #add-item input { flex: 1; padding: 10px; }
         #add-item button { padding: 10px; }
         #items { list-style: none; padding: 0; margin: 0; }
-        #items li { background: #eee; margin: 10px 0; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: grab; border: 1px solid #ddd; border-radius: 5px; }
+        #items li { 
+            background: #eee; 
+            margin: 10px 0; 
+            padding: 10px; 
+            display: flex; 
+            align-items: center; 
+            cursor: grab; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+        }
         #items li.dragging { opacity: 0.5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         .delete-btn { margin-left: 10px; cursor: pointer; }
+        
+        .item-number {
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 25px;
+            text-align: right;
+        }
+        .item-text-container {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+        .item-text {
+            flex-grow: 1;
+        }
+        .item-text:focus {
+            outline: 2px solid #0d6efd;
+            border-radius: 4px;
+        }
+
         #export, #import { margin: 10px 0; display: block; }
         #import-file { display: none; }
     </style>
@@ -134,11 +165,31 @@
                 const listNameSpan = document.createElement('span');
                 listNameSpan.textContent = list.name;
                 listNameSpan.classList.add('list-name'); 
+                listNameSpan.contentEditable = true; // Make list name editable
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
 
+                listNameSpan.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        listNameSpan.blur();
+                    }
+                });
+
+                listNameSpan.onblur = () => {
+                    const newName = listNameSpan.textContent.trim();
+                    if (newName) {
+                        list.name = newName;
+                        saveData();
+                        renderLists();
+                        updateHeadings();
+                    } else {
+                        listNameSpan.textContent = list.name; // Revert if empty
+                    }
+                };
+
                 li.onclick = (e) => {
-                    if (e.target.classList.contains('delete-list-btn')) {
+                    if (e.target.classList.contains('delete-list-btn') || e.target === listNameSpan) {
                         return;
                     }
                     currentListIndex = index;
@@ -172,10 +223,22 @@
                     const li = document.createElement('li');
                     li.draggable = true;
                     li.dataset.itemId = item.id;
+
+                    const itemContainer = document.createElement('div');
+                    itemContainer.classList.add('item-text-container');
+                    
+                    const itemNumber = document.createElement('span');
+                    itemNumber.classList.add('item-number');
+                    itemNumber.textContent = `${index + 1}.`;
+                    itemContainer.appendChild(itemNumber);
+
                     const text = document.createElement('span');
                     text.textContent = item.text;
-                    text.style.flex = '1';
+                    text.classList.add('item-text');
                     text.contentEditable = false;
+                    itemContainer.appendChild(text);
+                    li.appendChild(itemContainer);
+
                     text.addEventListener('click', (e) => {
                         if (text.contentEditable === 'true') return;
                         text.contentEditable = true;
@@ -191,10 +254,15 @@
 
                     text.onblur = () => {
                         text.contentEditable = false;
-                        item.text = text.textContent;
-                        saveData();
+                        const newText = text.textContent.trim();
+                        if (newText) {
+                            item.text = newText;
+                            saveData();
+                        } else {
+                            text.textContent = item.text; // Revert if empty
+                        }
                     };
-                    li.appendChild(text);
+                    
                     const deleteBtn = document.createElement('span');
                     deleteBtn.textContent = '🗑';
                     deleteBtn.className = 'delete-btn';
@@ -305,10 +373,11 @@
             const textInput = document.getElementById('new-item');
             const text = textInput.value.trim();
             if (text) {
+                const capitalizedText = text.charAt(0).toUpperCase() + text.slice(1);
                 data.items.push({
                     id: nextItemId++,
                     list_id: data.lists[currentListIndex].id,
-                    text,
+                    text: capitalizedText,
                     position: data.items.filter(i => i.list_id === data.lists[currentListIndex].id).length + 1
                 });
                 saveData();
