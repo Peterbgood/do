@@ -22,10 +22,23 @@
             flex-grow: 1;
         }
         .list-name:focus {
-            outline: 2px solid #0d6efd;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.5);
             border-radius: 4px;
         }
-        .delete-list-btn { cursor: pointer; margin-left: 10px; }
+
+        .list-buttons {
+            display: flex;
+            align-items: center;
+        }
+        .edit-list-btn, .save-list-btn, .cancel-list-btn, .delete-list-btn { 
+            margin-left: 10px; 
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0;
+            font-size: 1rem;
+        }
 
         #main { padding: 15px; box-sizing: border-box; }
         #add-item { display: flex; margin-bottom: 15px; }
@@ -167,51 +180,79 @@
                 listNameSpan.classList.add('list-name'); 
                 li.appendChild(listNameSpan);
                 li.dataset.listId = list.id;
+                
+                // Add container for buttons
+                const listButtons = document.createElement('div');
+                listButtons.classList.add('list-buttons');
 
-                // New click handler for the list name span
-                listNameSpan.onclick = (e) => {
-                    e.stopPropagation(); // Prevents the parent li click handler from firing
+                const editBtn = document.createElement('span');
+                editBtn.textContent = '✏️';
+                editBtn.className = 'edit-list-btn';
+                listButtons.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('span');
+                deleteBtn.textContent = '🗑';
+                deleteBtn.className = 'delete-list-btn';
+                listButtons.appendChild(deleteBtn);
+
+                li.appendChild(listButtons);
+
+                // Event handlers
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const initialName = listNameSpan.textContent;
                     listNameSpan.contentEditable = true;
                     listNameSpan.focus();
-                };
+                    
+                    const saveBtn = document.createElement('span');
+                    saveBtn.textContent = '✔️';
+                    saveBtn.className = 'save-list-btn';
+                    
+                    const cancelBtn = document.createElement('span');
+                    cancelBtn.textContent = '❌';
+                    cancelBtn.className = 'cancel-list-btn';
 
-                listNameSpan.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        listNameSpan.blur();
-                    }
-                });
+                    listButtons.replaceChild(saveBtn, editBtn);
+                    listButtons.insertBefore(cancelBtn, saveBtn);
 
-                listNameSpan.onblur = () => {
-                    const newName = listNameSpan.textContent.trim();
-                    if (newName) {
-                        list.name = newName;
-                        saveData();
+                    saveBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const newName = listNameSpan.textContent.trim();
+                        if (newName) {
+                            list.name = newName;
+                            saveData();
+                        }
+                        listNameSpan.contentEditable = false;
+                        listButtons.replaceChild(editBtn, saveBtn);
+                        listButtons.removeChild(cancelBtn);
                         renderLists();
                         updateHeadings();
-                    } else {
-                        listNameSpan.textContent = list.name; // Revert if empty
-                    }
+                    };
+
+                    cancelBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        listNameSpan.textContent = initialName;
+                        listNameSpan.contentEditable = false;
+                        listButtons.replaceChild(editBtn, saveBtn);
+                        listButtons.removeChild(cancelBtn);
+                        renderLists();
+                        updateHeadings();
+                    };
+                };
+
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteList(list.id);
                 };
                 
-                // Existing click handler for the list item
-                li.onclick = (e) => {
-                    // Check if the click was on the delete button or the editable name
-                    if (e.target.classList.contains('delete-list-btn') || e.target === listNameSpan) {
-                        return;
-                    }
+                li.onclick = () => {
                     currentListIndex = index;
                     updateHeadings();
                     renderItems();
                     const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasMenu'));
                     if (offcanvas) offcanvas.hide();
                 };
-
-                const deleteBtn = document.createElement('span');
-                deleteBtn.textContent = '🗑';
-                deleteBtn.className = 'delete-list-btn';
-                deleteBtn.onclick = () => deleteList(list.id);
-                li.appendChild(deleteBtn);
+                
                 lists.appendChild(li);
             });
         }
