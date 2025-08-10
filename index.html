@@ -18,6 +18,10 @@
             justify-content: space-between; 
             align-items: center; 
         }
+        .offcanvas-body li.dragging {
+            opacity: 0.5;
+            background: #e9ecef;
+        }
         .list-name {
             flex-grow: 1;
         }
@@ -38,6 +42,18 @@
             background: none;
             padding: 0;
             font-size: 1rem;
+        }
+
+        /* Styles for the new list drag handle */
+        .drag-handle-list {
+            cursor: grab;
+            margin-right: 10px;
+            color: #888;
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .drag-handle-list:active {
+            cursor: grabbing;
         }
 
         #main { padding: 15px; box-sizing: border-box; }
@@ -173,13 +189,24 @@
         function renderLists() {
             const lists = document.getElementById('lists');
             lists.innerHTML = '';
-            data.lists.sort((a, b) => a.position - b.position).forEach((list, index) => {
+            // Store the ID of the current list to maintain selection after re-render
+            const currentListId = data.lists[currentListIndex]?.id;
+
+            data.lists.sort((a, b) => a.position - b.position).forEach(list => {
                 const li = document.createElement('li');
+                li.draggable = true; // Make the list item draggable
+                li.dataset.listId = list.id;
+
+                // Create and add the drag handle icon
+                const dragHandle = document.createElement('span');
+                dragHandle.textContent = '≡'; // A common drag icon
+                dragHandle.className = 'drag-handle-list';
+                li.appendChild(dragHandle);
+
                 const listNameSpan = document.createElement('span');
                 listNameSpan.textContent = list.name;
                 listNameSpan.classList.add('list-name'); 
                 li.appendChild(listNameSpan);
-                li.dataset.listId = list.id;
                 
                 const listButtons = document.createElement('div');
                 listButtons.classList.add('list-buttons');
@@ -202,7 +229,6 @@
                     listNameSpan.contentEditable = true;
                     listNameSpan.focus();
                     
-                    // Fix: Place cursor at the end of the text
                     const range = document.createRange();
                     const selection = window.getSelection();
                     range.selectNodeContents(listNameSpan);
@@ -251,8 +277,12 @@
                     deleteList(list.id);
                 };
                 
-                li.onclick = () => {
-                    currentListIndex = index;
+                li.onclick = (e) => {
+                    // Prevent list selection when clicking on buttons or handle
+                    if (e.target.classList.contains('drag-handle-list') || e.target.closest('.list-buttons')) {
+                        return;
+                    }
+                    currentListIndex = data.lists.findIndex(l => l.id === list.id);
                     updateHeadings();
                     renderItems();
                     const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasMenu'));
@@ -261,6 +291,11 @@
                 
                 lists.appendChild(li);
             });
+            // Update currentListIndex to point to the correct list after sorting/rendering
+            currentListIndex = data.lists.findIndex(l => l.id === currentListId);
+            if (currentListIndex === -1) currentListIndex = 0;
+
+            initListDragAndDrop(); // Initialize drag and drop for the lists
         }
 
         function renderItems() {
@@ -330,6 +365,112 @@
                     items.appendChild(li);
                 });
             initDragAndDrop();
+        }
+        
+        // NEW FUNCTION for dragging and dropping lists
+        function initListDragAndDrop() {
+            const listsContainer = document.getElementById('lists');
+            let dragSrcEl = null;
+
+            function handleDragStart(e) {
+                // Only allow dragging from the handle
+                if (!e.target.classList.contains('drag-handle-list')) {
+                    e.preventDefault();
+                    return;
+                }
+                dragSrcEl = this;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', this.innerHTML);
+                this.classList.add('dragging');
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                return false;
+            }
+
+            function handleDrop(e) {
+                e.stopPropagation(); // stops the browser from redirecting.
+                if (dragSrcEl !== this) {
+                    const allLists = Array.from(listsContainer.children);
+                    const srcIndex = allLists.indexOf(dragSrcEl);
+                    const destIndex = allLists.indexOf(this);
+
+                    const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
+                    
+                    const [movedItem] = data.lists.splice(srcIndex, 1);
+                    data.lists.splice(destIndex, 0, movedItem);
+
+                    data.lists.forEach((list, idx) => list.position = idx + 1);
+                    currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
+                    
+                    saveData();
+                    renderLists();
+                }
+                return false;
+            }
+
+            function handleDragEnd() {
+                Array.from(listsContainer.children).forEach(item => {
+                    item.classList.remove('dragging');
+                });
+            }
+
+            // Touch event handling for lists
+            let touchElement = null;
+            let hasMoved = false;
+
+            listsContainer.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('drag-handle-list')) {
+                    touchElement = e.target.closest('li');
+                    hasMoved = false;
+                }
+            }, { passive: true });
+
+            listsContainer.addEventListener('touchmove', (e) => {
+                if (!touchElement) return;
+                hasMoved = true;
+                touchElement.classList.add('dragging');
+                
+                const touchY = e.touches[0].clientY;
+                const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
+                const hoverLi = hoverElement ? hoverElement.closest('li') : null;
+
+                if (hoverLi && hoverLi !== touchElement && listsContainer.contains(hoverLi)) {
+                    const allLists = Array.from(listsContainer.children);
+                    const srcIndex = allLists.indexOf(touchElement);
+                    const destIndex = allLists.indexOf(hoverLi);
+                    if (srcIndex < destIndex) {
+                        listsContainer.insertBefore(touchElement, hoverLi.nextSibling);
+                    } else {
+                        listsContainer.insertBefore(touchElement, hoverLi);
+                    }
+                }
+            });
+
+            listsContainer.addEventListener('touchend', () => {
+                if (!touchElement) return;
+                touchElement.classList.remove('dragging');
+                if (hasMoved) {
+                    const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
+                    const newOrderIds = Array.from(listsContainer.children).map(li => parseInt(li.dataset.listId));
+                    data.lists.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
+
+                    data.lists.forEach((list, index) => list.position = index + 1);
+                    currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
+
+                    saveData();
+                    renderLists();
+                }
+                touchElement = null;
+            });
+            
+            Array.from(listsContainer.children).forEach(item => {
+                item.addEventListener('dragstart', handleDragStart, false);
+                item.addEventListener('dragover', handleDragOver, false);
+                item.addEventListener('drop', handleDrop, false);
+                item.addEventListener('dragend', handleDragEnd, false);
+            });
         }
 
         function initDragAndDrop() {
