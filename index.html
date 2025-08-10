@@ -66,23 +66,11 @@
             padding: 10px; 
             display: flex; 
             align-items: center; 
-            cursor: default;
+            cursor: grab; 
             border: 1px solid #ddd; 
             border-radius: 5px; 
         }
         #items li.dragging { opacity: 0.5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        
-        .drag-handle-item {
-            cursor: grab;
-            margin-right: 10px;
-            color: #888;
-            font-size: 1.2rem;
-            line-height: 1;
-        }
-        .drag-handle-item:active {
-            cursor: grabbing;
-        }
-
         .delete-btn { margin-left: 10px; cursor: pointer; }
         
         .item-number {
@@ -95,7 +83,6 @@
             display: flex;
             align-items: center;
             flex-grow: 1;
-            cursor: text;
         }
         .item-text {
             flex-grow: 1;
@@ -151,6 +138,7 @@
         let nextListId = 1;
         let nextItemId = 1;
 
+        // Helper function to capitalize the first letter of every word
         function toTitleCase(str) {
             return str.replace(/\w\S*/g, function(txt){
                 return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
@@ -191,6 +179,7 @@
             data.items = data.items.filter(i => i.list_id !== listId);
         
             if (data.lists.length > 0) {
+                const newCurrentList = data.lists[0];
                 currentListIndex = 0;
             } else {
                 data.lists.push({ id: nextListId++, name: 'Default List', position: 1 });
@@ -266,7 +255,7 @@
                         e.stopPropagation();
                         let newName = listNameSpan.textContent.trim();
                         if (newName) {
-                            list.name = toTitleCase(newName);
+                            list.name = toTitleCase(newName); // Capitalize on save
                             saveData();
                         }
                         listNameSpan.contentEditable = false;
@@ -328,11 +317,6 @@
                     li.draggable = true;
                     li.dataset.itemId = item.id;
 
-                    const dragHandle = document.createElement('span');
-                    dragHandle.textContent = '⋮⋮';
-                    dragHandle.className = 'drag-handle-item';
-                    li.appendChild(dragHandle);
-
                     const itemContainer = document.createElement('div');
                     itemContainer.classList.add('item-text-container');
                     
@@ -349,7 +333,7 @@
                     li.appendChild(itemContainer);
 
                     text.addEventListener('click', (e) => {
-                        if (text.contentEditable === 'true' || e.target.classList.contains('drag-handle-item')) return;
+                        if (text.contentEditable === 'true') return;
                         text.contentEditable = true;
                         text.focus();
                     });
@@ -365,9 +349,9 @@
                         text.contentEditable = false;
                         let newText = text.textContent.trim();
                         if (newText) {
-                            item.text = toTitleCase(newText);
+                            item.text = toTitleCase(newText); // Capitalize on save
                             saveData();
-                            renderItems();
+                            renderItems(); // Re-render to show capitalized text
                         } else {
                             text.textContent = item.text;
                         }
@@ -398,53 +382,87 @@
                 }
                 dragSrcEl = this;
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', this.dataset.listId);
+                e.dataTransfer.setData('text/html', this.innerHTML);
                 this.classList.add('dragging');
             }
 
             function handleDragOver(e) {
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
+                return false;
             }
 
             function handleDrop(e) {
-                e.preventDefault();
                 e.stopPropagation();
-                if (dragSrcEl && dragSrcEl !== this) {
+                if (dragSrcEl !== this) {
+                    const allLists = Array.from(listsContainer.children);
+                    const srcIndex = allLists.indexOf(dragSrcEl);
+                    const destIndex = allLists.indexOf(this);
                     const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
-                    const srcId = parseInt(dragSrcEl.dataset.listId);
-                    const destId = parseInt(this.dataset.listId);
-                    
-                    const srcIndex = data.lists.findIndex(l => l.id === srcId);
                     const [movedItem] = data.lists.splice(srcIndex, 1);
-                    const destIndex = data.lists.findIndex(l => l.id === destId);
                     data.lists.splice(destIndex, 0, movedItem);
-
                     data.lists.forEach((list, idx) => list.position = idx + 1);
                     currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
-                    
                     saveData();
                     renderLists();
                 }
+                return false;
             }
 
             function handleDragEnd() {
-                this.parentElement.querySelectorAll('li').forEach(item => {
+                Array.from(listsContainer.children).forEach(item => {
                     item.classList.remove('dragging');
                 });
-                dragSrcEl = null;
             }
 
-            // Touch event handlers remain the same
             let touchElement = null;
             let hasMoved = false;
-            // ... (touch implementation is unchanged) ...
 
+            listsContainer.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('drag-handle-list')) {
+                    touchElement = e.target.closest('li');
+                    hasMoved = false;
+                }
+            }, { passive: true });
+
+            listsContainer.addEventListener('touchmove', (e) => {
+                if (!touchElement) return;
+                hasMoved = true;
+                touchElement.classList.add('dragging');
+                const touchY = e.touches[0].clientY;
+                const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
+                const hoverLi = hoverElement ? hoverElement.closest('li') : null;
+                if (hoverLi && hoverLi !== touchElement && listsContainer.contains(hoverLi)) {
+                    const allLists = Array.from(listsContainer.children);
+                    const srcIndex = allLists.indexOf(touchElement);
+                    const destIndex = allLists.indexOf(hoverLi);
+                    if (srcIndex < destIndex) {
+                        listsContainer.insertBefore(touchElement, hoverLi.nextSibling);
+                    } else {
+                        listsContainer.insertBefore(touchElement, hoverLi);
+                    }
+                }
+            });
+
+            listsContainer.addEventListener('touchend', () => {
+                if (!touchElement) return;
+                touchElement.classList.remove('dragging');
+                if (hasMoved) {
+                    const activeListIdBeforeReorder = data.lists[currentListIndex]?.id;
+                    const newOrderIds = Array.from(listsContainer.children).map(li => parseInt(li.dataset.listId));
+                    data.lists.sort((a, b) => newOrderIds.indexOf(a.id) - newOrderIds.indexOf(b.id));
+                    data.lists.forEach((list, index) => list.position = index + 1);
+                    currentListIndex = data.lists.findIndex(l => l.id === activeListIdBeforeReorder);
+                    saveData();
+                    renderLists();
+                }
+                touchElement = null;
+            });
+            
             Array.from(listsContainer.children).forEach(item => {
-                item.addEventListener('dragstart', handleDragStart);
-                item.addEventListener('dragover', handleDragOver);
-                item.addEventListener('drop', handleDrop);
-                item.addEventListener('dragend', handleDragEnd);
+                item.addEventListener('dragstart', handleDragStart, false);
+                item.addEventListener('dragover', handleDragOver, false);
+                item.addEventListener('drop', handleDrop, false);
+                item.addEventListener('dragend', handleDragEnd, false);
             });
         }
 
@@ -453,10 +471,6 @@
             let dragSrcEl = null;
 
             function handleDragStart(e) {
-                if (!e.target.classList.contains('drag-handle-item')) {
-                    e.preventDefault();
-                    return;
-                }
                 dragSrcEl = this;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', this.dataset.itemId);
@@ -470,35 +484,67 @@
 
             function handleDrop(e) {
                 e.preventDefault();
-                e.stopPropagation();
-                if (dragSrcEl && dragSrcEl !== this) {
-                    const srcId = parseInt(e.dataTransfer.getData('text/plain'));
+                if (dragSrcEl !== this) {
+                    const srcId = parseInt(dragSrcEl.dataset.itemId);
                     const destId = parseInt(this.dataset.itemId);
-                    
-                    const srcIndex = data.items.findIndex(i => i.id === srcId);
-                    const [movedItem] = data.items.splice(srcIndex, 1);
-                    const destIndex = data.items.findIndex(i => i.id === destId);
-                    data.items.splice(destIndex, 0, movedItem);
-
+                    const srcItem = data.items.find(i => i.id === srcId);
+                    const destItem = data.items.find(i => i.id === destId);
+                    const srcIndex = data.items.indexOf(srcItem);
+                    const destIndex = data.items.indexOf(destItem);
+                    data.items.splice(destIndex, 0, data.items.splice(srcIndex, 1)[0]);
                     const currentListItems = data.items.filter(i => i.list_id === data.lists[currentListIndex].id);
                     currentListItems.forEach((item, idx) => item.position = idx + 1);
-                    
                     saveData();
                     renderItems();
                 }
+                dragSrcEl.classList.remove('dragging');
             }
 
             function handleDragEnd() {
-                this.parentElement.querySelectorAll('li').forEach(item => {
-                    item.classList.remove('dragging');
-                });
-                dragSrcEl = null;
+                this.classList.remove('dragging');
             }
 
-            // Touch event handlers remain the same
             let touchElement = null;
             let hasMoved = false;
-            // ... (touch implementation is unchanged) ...
+
+            items.addEventListener('touchstart', (e) => {
+                touchElement = e.target.closest('li');
+                hasMoved = false;
+                if (touchElement) {
+                    touchElement.classList.add('dragging');
+                }
+            });
+
+            items.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                hasMoved = true;
+                if (touchElement) {
+                    const touchY = e.touches[0].clientY;
+                    const hoverElement = document.elementFromPoint(e.touches[0].clientX, touchY);
+                    const hoverLi = hoverElement ? hoverElement.closest('li') : null;
+                    if (hoverLi && hoverLi !== touchElement) {
+                        const rect = hoverLi.getBoundingClientRect();
+                        const next = (touchY - rect.top) / rect.height > 0.5;
+                        items.insertBefore(touchElement, next ? hoverLi.nextSibling : hoverLi);
+                    }
+                }
+            });
+
+            items.addEventListener('touchend', () => {
+                if (touchElement) {
+                    touchElement.classList.remove('dragging');
+                    if (hasMoved) {
+                        const newOrder = Array.from(items.children).map(li => parseInt(li.dataset.itemId));
+                        const reorderedItems = newOrder.map(id => data.items.find(i => i.id === id));
+                        const otherItems = data.items.filter(i => i.list_id !== data.lists[currentListIndex].id);
+                        data.items = otherItems.concat(reorderedItems);
+                        reorderedItems.forEach((item, index) => item.position = index + 1);
+                        saveData();
+                        renderItems();
+                    }
+                    touchElement = null;
+                }
+            });
 
             Array.from(items.children).forEach(item => {
                 item.addEventListener('dragstart', handleDragStart);
@@ -512,7 +558,7 @@
             const textInput = document.getElementById('new-item');
             const text = textInput.value.trim();
             if (text) {
-                const capitalizedText = toTitleCase(text);
+                const capitalizedText = toTitleCase(text); // Capitalize new item
                 data.items.push({
                     id: nextItemId++,
                     list_id: data.lists[currentListIndex].id,
@@ -528,7 +574,7 @@
         document.getElementById('add-list').onclick = () => {
             const name = document.getElementById('new-list-name').value.trim();
             if (name) {
-                const capitalizedName = toTitleCase(name);
+                const capitalizedName = toTitleCase(name); // Capitalize new list name
                 data.lists.push({ id: nextListId++, name: capitalizedName, position: data.lists.length + 1 });
                 saveData();
                 renderLists();
