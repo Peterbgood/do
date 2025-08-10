@@ -9,6 +9,29 @@
         body { font-family: Arial, sans-serif; }
         header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: #333; color: white; }
         
+        /* A simple, robust hamburger icon that works on any browser */
+        .hamburger-icon {
+            display: block;
+            width: 25px;
+            height: 2px;
+            background-color: white;
+            position: relative;
+        }
+        .hamburger-icon::before,
+        .hamburger-icon::after {
+            content: '';
+            position: absolute;
+            width: 25px;
+            height: 2px;
+            background-color: white;
+        }
+        .hamburger-icon::before {
+            transform: translateY(-8px);
+        }
+        .hamburger-icon::after {
+            transform: translateY(8px);
+        }
+
         /* Specific menu styling for list items */
         .offcanvas-body ul { list-style: none; padding: 0; }
         .offcanvas-body li { 
@@ -40,7 +63,7 @@
     <header>
         <h1 id="header-list-name">To-Do App</h1>
         <button class="btn btn-dark" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu" aria-controls="offcanvasMenu">
-            <span class="navbar-toggler-icon"></span>
+            <div class="hamburger-icon"></div>
         </button>
     </header>
 
@@ -63,7 +86,6 @@
     </div>
 
     <div id="main" class="container">
-        <h2 id="current-list-name">Default List</h2>
         <div id="add-item" class="input-group mb-3">
             <input id="new-item" type="text" class="form-control" placeholder="New item">
             <button id="add-btn" class="btn btn-success">Add</button>
@@ -102,12 +124,9 @@
             if (currentList) {
                 document.title = currentList.name + ' | To-Do App';
                 document.getElementById('header-list-name').textContent = currentList.name;
-                document.getElementById('current-list-name').textContent = currentList.name;
             } else {
-                // Fallback if no lists exist
                 document.title = 'To-Do App';
                 document.getElementById('header-list-name').textContent = 'To-Do App';
-                document.getElementById('current-list-name').textContent = 'No lists';
             }
         }
         
