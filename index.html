@@ -104,7 +104,7 @@
         </button>
     </header>
 
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMenu" aria-labelledby="offcanvasMenuLabel">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title" id="offcanvasMenuLabel">Lists</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
@@ -141,7 +141,7 @@
         // Helper function to capitalize the first letter of every word
         function toTitleCase(str) {
             return str.replace(/\w\S*/g, function(txt){
-                return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+                return txt.charAt(0).toUpperCase() + txt.substr(1);
             });
         }
 
